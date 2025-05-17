@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'master'
+    }
     
     environment {
         DOCKER_REGISTRY = 'edensit139'
@@ -21,52 +23,71 @@ pipeline {
         
         stage('Setup Environment') {
             steps {
-                sh '''
-                    # Install Docker CLI if not present
-                    if ! command -v docker &> /dev/null; then
-                        echo "Installing Docker CLI..."
-                        apt-get update
-                        apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-                        mkdir -p /etc/apt/keyrings
-                        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-                        apt-get update
-                        apt-get install -y docker-ce-cli
-                    fi
+                script {
+                    // Check for Docker
+                    def dockerCheck = sh(script: 'command -v docker', returnStatus: true)
+                    if (dockerCheck != 0) {
+                        error '''
+                        Docker is not installed or not in PATH. Please install Docker on the Jenkins server.
+                        
+                        To install Docker on Ubuntu/Debian:
+                        1. SSH into your Jenkins server
+                        2. Run the following commands:
+                           sudo apt-get update
+                           sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+                           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+                           sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+                           sudo apt-get update
+                           sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                           sudo usermod -aG docker jenkins
+                           sudo systemctl restart jenkins
+                        '''
+                    }
                     
-                    # Check for Docker socket access
-                    if [ ! -e /var/run/docker.sock ]; then
-                        echo "WARNING: Docker socket (/var/run/docker.sock) not found."
-                        echo "Make sure to run Jenkins with '-v /var/run/docker.sock:/var/run/docker.sock'"
-                        exit 1
-                    fi
+                    // Check for Docker socket
+                    def socketCheck = sh(script: '[ -e /var/run/docker.sock ]', returnStatus: true)
+                    if (socketCheck != 0) {
+                        error '''
+                        Docker socket (/var/run/docker.sock) not found or not accessible.
+                        Make sure the Jenkins user has access to the Docker socket.
+                        
+                        Try the following:
+                        1. Add the jenkins user to the docker group:
+                           sudo usermod -aG docker jenkins
+                        2. Restart Jenkins:
+                           sudo systemctl restart jenkins
+                        '''
+                    }
                     
-                    # Check for Node.js and install if needed
-                    if ! command -v node &> /dev/null; then
-                        echo "Installing Node.js ${NODE_VERSION}..."
-                        curl -sL https://deb.nodesource.com/setup_18.x | bash -
-                        apt-get install -y nodejs
-                    fi
-                    
-                    # Verify installations
-                    echo "Docker version:"
-                    docker --version || true
-                    echo "Node version:"
-                    node --version || true
-                    echo "NPM version:"
-                    npm --version || true
-                '''
+                    // Display versions
+                    sh '''
+                        echo "Docker version:"
+                        docker --version
+                        echo "Node version:"
+                        node --version || echo "Node.js not installed"
+                        echo "NPM version:"
+                        npm --version || echo "NPM not installed"
+                    '''
+                }
             }
         }
         
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh '''
-                        echo "Building backend application..."
-                        npm ci
-                        npm run build
-                    '''
+                    echo "Building backend Docker image..."
+                    
+                    // Install Node.js if needed
+                    script {
+                        def nodeCheck = sh(script: 'command -v node', returnStatus: true)
+                        if (nodeCheck != 0) {
+                            echo "Installing Node.js for backend build..."
+                            sh '''
+                                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+                                apt-get install -y nodejs
+                            '''
+                        }
+                    }
                     
                     script {
                         try {
@@ -83,11 +104,19 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh '''
-                        echo "Building frontend application..."
-                        npm ci
-                        npm run build
-                    '''
+                    echo "Building frontend Docker image..."
+                    
+                    // Install Node.js if needed
+                    script {
+                        def nodeCheck = sh(script: 'command -v node', returnStatus: true)
+                        if (nodeCheck != 0) {
+                            echo "Installing Node.js for frontend build..."
+                            sh '''
+                                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+                                apt-get install -y nodejs
+                            '''
+                        }
+                    }
                     
                     // Check if nginx.conf exists, create if not
                     sh '''
