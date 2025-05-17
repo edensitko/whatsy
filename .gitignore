@@ -94,3 +94,13 @@ Thumbs.db
 
 # Ignore frontend git repo if accidentally added
 frontend/.git/
+
+# Ignore all shell scripts in the main directory
+/*.sh
+
+# Ignore all markdown files in the main directory that might contain sensitive info
+/*.md
+
+# Ignore specific configuration files that might contain sensitive info
+/jenkins-ec2-setup.md
+/twilio-webhook-guide.md
