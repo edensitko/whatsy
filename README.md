@@ -159,3 +159,4 @@ This project is licensed under the MIT License.
 - [DockerHub Images](https://hub.docker.com/r/edensit139/whatsy)
 - [GitHub Actions Docs](https://docs.github.com/en/actions)
 - [Helm Docs](https://helm.sh/docs/)
+# whatsy
