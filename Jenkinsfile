@@ -22,45 +22,41 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 script {
-                    // Check for Docker
-                    def dockerCheck = sh(script: 'command -v docker', returnStatus: true)
-                    if (dockerCheck != 0) {
-                        error '''
-                        Docker is not installed or not in PATH. Please install Docker on the Jenkins server.
+                    // We'll use the host machine's Docker via SSH
+                    echo "Using host machine's Docker via SSH for Docker operations"
+                    
+                    // Test SSH connection to localhost
+                    def sshTest = sh(script: 'ssh -o StrictHostKeyChecking=no localhost "echo SSH connection successful"', returnStatus: true)
+                    if (sshTest != 0) {
+                        echo "Setting up SSH access to localhost..."
                         
-                        To install Docker on Ubuntu/Debian:
-                        1. SSH into your Jenkins server
-                        2. Run the following commands:
-                           sudo apt-get update
-                           sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-                           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-                           sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-                           sudo apt-get update
-                           sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-                           sudo usermod -aG docker jenkins
-                           sudo systemctl restart jenkins
+                        // Generate SSH key if it doesn't exist
+                        sh '''
+                            if [ ! -f ~/.ssh/id_rsa ]; then
+                                mkdir -p ~/.ssh
+                                ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+                                cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+                                chmod 600 ~/.ssh/authorized_keys
+                            fi
                         '''
+                        
+                        // Test SSH connection again
+                        sshTest = sh(script: 'ssh -o StrictHostKeyChecking=no localhost "echo SSH connection successful"', returnStatus: true)
+                        if (sshTest != 0) {
+                            error "Failed to set up SSH access to localhost. Please set up SSH keys manually."
+                        }
                     }
                     
-                    // Check for Docker socket
-                    def socketCheck = sh(script: '[ -e /var/run/docker.sock ]', returnStatus: true)
-                    if (socketCheck != 0) {
-                        error '''
-                        Docker socket (/var/run/docker.sock) not found or not accessible.
-                        Make sure the Jenkins user has access to the Docker socket.
-                        
-                        Try the following:
-                        1. Add the jenkins user to the docker group:
-                           sudo usermod -aG docker jenkins
-                        2. Restart Jenkins:
-                           sudo systemctl restart jenkins
-                        '''
+                    // Check Docker on the host
+                    def dockerCheck = sh(script: 'ssh -o StrictHostKeyChecking=no localhost "docker --version"', returnStatus: true)
+                    if (dockerCheck != 0) {
+                        error "Docker is not installed or not accessible on the host machine."
                     }
                     
                     // Display versions
                     sh '''
-                        echo "Docker version:"
-                        docker --version
+                        echo "Docker version on host:"
+                        ssh -o StrictHostKeyChecking=no localhost "docker --version"
                         echo "Node version:"
                         node --version || echo "Node.js not installed"
                         echo "NPM version:"
@@ -89,7 +85,7 @@ pipeline {
                     
                     script {
                         try {
-                            sh "docker build -t ${BACKEND_IMAGE} ."
+                            sh "ssh -o StrictHostKeyChecking=no localhost 'cd ${env.WORKSPACE}/backend && docker build -t ${BACKEND_IMAGE} .'"
                             echo "Backend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build backend Docker image: ${e.message}"
@@ -146,7 +142,7 @@ EOL
                     
                     script {
                         try {
-                            sh "docker build -t ${FRONTEND_IMAGE} ."
+                            sh "ssh -o StrictHostKeyChecking=no localhost 'cd ${env.WORKSPACE}/frontend && docker build -t ${FRONTEND_IMAGE} .'"
                             echo "Frontend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build frontend Docker image: ${e.message}"
@@ -166,14 +162,14 @@ EOL
                         try {
                             sh '''
                                 echo "Attempting to log in to Docker Hub..."
-                                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                                echo "$DOCKER_PASSWORD" | ssh -o StrictHostKeyChecking=no localhost "docker login -u '$DOCKER_USERNAME' --password-stdin"
                                 echo "Docker login successful"
                             '''
                             
-                            sh "docker push ${BACKEND_IMAGE}"
+                            sh "ssh -o StrictHostKeyChecking=no localhost 'docker push ${BACKEND_IMAGE}'"
                             echo "Backend image pushed successfully"
                             
-                            sh "docker push ${FRONTEND_IMAGE}"
+                            sh "ssh -o StrictHostKeyChecking=no localhost 'docker push ${FRONTEND_IMAGE}'"
                             echo "Frontend image pushed successfully"
                             
                         } catch (Exception e) {
