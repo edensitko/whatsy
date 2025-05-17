@@ -68,7 +68,18 @@ pipeline {
         
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: EC2_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')]) {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: EC2_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY'),
+                    string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY'),
+                    string(credentialsId: 'twilio-account-sid', variable: 'TWILIO_ACCOUNT_SID'),
+                    string(credentialsId: 'twilio-auth-token', variable: 'TWILIO_AUTH_TOKEN'),
+                    string(credentialsId: 'firebase-api-key', variable: 'FIREBASE_API_KEY'),
+                    string(credentialsId: 'firebase-auth-domain', variable: 'FIREBASE_AUTH_DOMAIN'),
+                    string(credentialsId: 'firebase-project-id', variable: 'FIREBASE_PROJECT_ID'),
+                    string(credentialsId: 'firebase-storage-bucket', variable: 'FIREBASE_STORAGE_BUCKET'),
+                    string(credentialsId: 'firebase-messaging-sender-id', variable: 'FIREBASE_MESSAGING_SENDER_ID'),
+                    string(credentialsId: 'firebase-app-id', variable: 'FIREBASE_APP_ID')
+                ]) {
                     sh """
                         ssh -i \$SSH_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
                             # Pull the latest images
@@ -84,7 +95,7 @@ pipeline {
                             # Create network if it doesn't exist
                             docker network inspect whatsy-network >/dev/null 2>&1 || docker network create whatsy-network
                             
-                            # Run backend container
+                            # Run backend container with credentials from Jenkins
                             docker run -d \\
                               --name whatsy-backend \\
                               --network whatsy-network \\
@@ -92,7 +103,21 @@ pipeline {
                               -p 5000:5000 \\
                               -p 443:443 \\
                               -v ~/certs:/app/certs \\
-                              --env-file ~/.env \\
+                              -e OPENAI_API_KEY='${OPENAI_API_KEY}' \\
+                              -e TWILIO_ACCOUNT_SID='${TWILIO_ACCOUNT_SID}' \\
+                              -e TWILIO_AUTH_TOKEN='${TWILIO_AUTH_TOKEN}' \\
+                              -e FIREBASE_API_KEY='${FIREBASE_API_KEY}' \\
+                              -e FIREBASE_AUTH_DOMAIN='${FIREBASE_AUTH_DOMAIN}' \\
+                              -e FIREBASE_PROJECT_ID='${FIREBASE_PROJECT_ID}' \\
+                              -e FIREBASE_STORAGE_BUCKET='${FIREBASE_STORAGE_BUCKET}' \\
+                              -e FIREBASE_MESSAGING_SENDER_ID='${FIREBASE_MESSAGING_SENDER_ID}' \\
+                              -e FIREBASE_APP_ID='${FIREBASE_APP_ID}' \\
+                              -e PORT=5000 \\
+                              -e NODE_ENV=production \\
+                              -e ENABLE_HTTPS=true \\
+                              -e SSL_CERT_PATH=./certs/cert.pem \\
+                              -e SSL_KEY_PATH=./certs/key.pem \\
+                              -e HTTPS_PORT=443 \\
                               --restart unless-stopped \\
                               ${BACKEND_IMAGE}
                               
