@@ -87,9 +87,11 @@ pipeline {
                 echo "Starting Docker login with credentials ID: ${DOCKER_CREDENTIALS_ID}"
                 echo "Docker registry: ${DOCKER_REGISTRY}"
                 withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "echo 'Attempting to log in to Docker Hub...'"
-                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin || (echo 'Docker login failed' && exit 1)"
-                    sh "echo 'Docker login successful, pushing backend image...'"
+                    sh '''
+                        echo 'Attempting to log in to Docker Hub...'
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin || (echo 'Docker login failed' && exit 1)
+                        echo 'Docker login successful, pushing backend image...'
+                    '''
                     sh "docker push ${BACKEND_IMAGE} || (echo 'Failed to push backend image' && exit 1)"
                     sh "echo 'Backend image pushed successfully, pushing frontend image...'"
                     sh "docker push ${FRONTEND_IMAGE} || (echo 'Failed to push frontend image' && exit 1)"
@@ -102,7 +104,7 @@ pipeline {
             steps {
                 echo "Starting deployment to EC2..."
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'ec2-ssh-key')
+                    sshUserPrivateKey(credentialsId: EC2_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')
                     // Uncomment these lines when you have added the credentials to Jenkins
                     // , string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY')
                     // , string(credentialsId: 'twilio-account-sid', variable: 'TWILIO_ACCOUNT_SID')
@@ -115,7 +117,7 @@ pipeline {
                     // , string(credentialsId: 'firebase-app-id', variable: 'FIREBASE_APP_ID')
                 ]) {
                     sh """
-                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                        ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
                             # Pull the latest images
                             docker pull ${BACKEND_IMAGE}
                             docker pull ${FRONTEND_IMAGE}
@@ -164,7 +166,7 @@ pipeline {
                 echo "Verifying deployment..."
                 withCredentials([sshUserPrivateKey(credentialsId: EC2_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')]) {
                     sh """
-                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                        ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
                             # Check if containers are running
                             echo "Checking backend container status:"
                             docker ps | grep whatsy-backend || echo "Backend container not running!"
