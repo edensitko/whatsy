@@ -9,6 +9,7 @@ pipeline {
         EC2_HOST = '13.219.30.68'
         EC2_USER = 'ubuntu'
         EC2_CREDENTIALS_ID = 'ec2-ssh-key'
+        PATH = "$HOME/.nvm/versions/node/v18.20.8/bin:${PATH}"
     }
     
     stages {
