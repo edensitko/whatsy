@@ -9,7 +9,8 @@ pipeline {
         EC2_HOST = '13.219.30.68'
         EC2_USER = 'ubuntu'
         EC2_CREDENTIALS_ID = 'ec2-ssh-key'
-        PATH = "$HOME/.nvm/versions/node/v18.20.8/bin:${PATH}"
+        NVM_DIR = "$HOME/.nvm"
+        NODE_VERSION = '18.20.8'
     }
     
     stages {
@@ -27,11 +28,22 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
                     [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-                    nvm install 18
-                    nvm use 18
+                    
+                    # Install specific Node.js version
+                    nvm install ${NODE_VERSION}
+                    nvm alias default ${NODE_VERSION}
+                    nvm use default
+                    
+                    # Create a .nvmrc file to ensure consistent Node.js version
+                    echo ${NODE_VERSION} > .nvmrc
+                    
                     # Verify installation
                     node --version
                     npm --version
+                    
+                    # Add NVM to Jenkins shell initialization
+                    echo 'export NVM_DIR="$HOME/.nvm"' >> $HOME/.bashrc
+                    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> $HOME/.bashrc
                 '''
             }
         }
@@ -39,8 +51,15 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh 'npm install'
-                    sh 'npm run build'
+                    sh '''
+                        # Load NVM and use the installed Node.js version
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use ${NODE_VERSION}
+                        
+                        npm install
+                        npm run build
+                    '''
                     sh "docker build -t ${BACKEND_IMAGE} ."
                 }
             }
@@ -49,8 +68,15 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh 'npm install'
-                    sh 'npm run build'
+                    sh '''
+                        # Load NVM and use the installed Node.js version
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use ${NODE_VERSION}
+                        
+                        npm install
+                        npm run build
+                    '''
                     sh "docker build -t ${FRONTEND_IMAGE} ."
                 }
             }
