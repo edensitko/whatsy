@@ -5,7 +5,7 @@ pipeline {
         DOCKER_REGISTRY = 'edensit139'
         BACKEND_IMAGE = "${DOCKER_REGISTRY}/whatsy:backend-prod"
         FRONTEND_IMAGE = "${DOCKER_REGISTRY}/whatsy:frontend-prod"
-        DOCKER_CREDENTIALS_ID = 'dockerhub-cred'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
         EC2_HOST = '13.219.30.68'
         EC2_USER = 'ubuntu'
         EC2_CREDENTIALS_ID = 'ec2-ssh-key'
