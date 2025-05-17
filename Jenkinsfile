@@ -22,9 +22,22 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
-                    # Check for Docker CLI
+                    # Install Docker CLI if not present
                     if ! command -v docker &> /dev/null; then
-                        echo "Docker is not installed. Please install Docker on the Jenkins server."
+                        echo "Installing Docker CLI..."
+                        apt-get update
+                        apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+                        mkdir -p /etc/apt/keyrings
+                        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+                        apt-get update
+                        apt-get install -y docker-ce-cli
+                    fi
+                    
+                    # Check for Docker socket access
+                    if [ ! -e /var/run/docker.sock ]; then
+                        echo "WARNING: Docker socket (/var/run/docker.sock) not found."
+                        echo "Make sure to run Jenkins with '-v /var/run/docker.sock:/var/run/docker.sock'"
                         exit 1
                     fi
                     
