@@ -84,10 +84,16 @@ pipeline {
         
         stage('Push Images') {
             steps {
+                echo "Starting Docker login with credentials ID: ${DOCKER_CREDENTIALS_ID}"
+                echo "Docker registry: ${DOCKER_REGISTRY}"
                 withCredentials([string(credentialsId: DOCKER_CREDENTIALS_ID, variable: 'DOCKER_PASSWORD')]) {
-                    sh "echo $DOCKER_PASSWORD | docker login -u ${DOCKER_REGISTRY} --password-stdin"
-                    sh "docker push ${BACKEND_IMAGE}"
-                    sh "docker push ${FRONTEND_IMAGE}"
+                    sh "echo 'Attempting to log in to Docker Hub...'"
+                    sh "echo $DOCKER_PASSWORD | docker login -u ${DOCKER_REGISTRY} --password-stdin || (echo 'Docker login failed' && exit 1)"
+                    sh "echo 'Docker login successful, pushing backend image...'"
+                    sh "docker push ${BACKEND_IMAGE} || (echo 'Failed to push backend image' && exit 1)"
+                    sh "echo 'Backend image pushed successfully, pushing frontend image...'"
+                    sh "docker push ${FRONTEND_IMAGE} || (echo 'Failed to push frontend image' && exit 1)"
+                    sh "echo 'All images pushed successfully'"
                 }
             }
         }
