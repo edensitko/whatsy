@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'cimg/node:18.20.8-browsers'
-            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
     
     environment {
         DOCKER_REGISTRY = 'edensit139'
@@ -27,21 +22,47 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
-                    # Install Docker CLI if not present
+                    # Install Docker if not present
                     if ! command -v docker &> /dev/null; then
-                        echo "Installing Docker CLI..."
-                        apt-get update
-                        apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-                        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-                        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-                        apt-get update
-                        apt-get install -y docker-ce-cli
+                        echo "Installing Docker..."
+                        sudo apt-get update
+                        sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+                        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+                        sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+                        sudo apt-get update
+                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                        sudo systemctl start docker
+                        sudo systemctl enable docker
+                        sudo usermod -aG docker jenkins
+                        sudo systemctl restart jenkins
+                        # Since we just added the jenkins user to the docker group,
+                        # we need to run Docker commands with sudo until the next login
+                        echo "Docker installed. You may need to run this pipeline again after Jenkins restarts."
                     fi
                     
-                    # Verify Docker and Node.js installations
-                    docker --version
-                    node --version
-                    npm --version
+                    # Install Node.js using NVM
+                    export NVM_DIR="$HOME/.nvm"
+                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+                    
+                    # Install NVM if not present
+                    if ! command -v nvm &> /dev/null; then
+                        echo "Installing NVM..."
+                        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+                    fi
+                    
+                    # Install specific Node.js version
+                    nvm install ${NODE_VERSION}
+                    nvm use ${NODE_VERSION}
+                    
+                    # Verify installations
+                    echo "Docker version:"
+                    sudo docker --version || true
+                    echo "Node version:"
+                    node --version || true
+                    echo "NPM version:"
+                    npm --version || true
                 '''
             }
         }
@@ -57,7 +78,7 @@ pipeline {
                     
                     script {
                         try {
-                            sh "docker build -t ${BACKEND_IMAGE} ."
+                            sh "sudo docker build -t ${BACKEND_IMAGE} ."
                             echo "Backend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build backend Docker image: ${e.message}"
@@ -106,7 +127,7 @@ EOL
                     
                     script {
                         try {
-                            sh "docker build -t ${FRONTEND_IMAGE} ."
+                            sh "sudo docker build -t ${FRONTEND_IMAGE} ."
                             echo "Frontend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build frontend Docker image: ${e.message}"
@@ -126,14 +147,14 @@ EOL
                         try {
                             sh '''
                                 echo "Attempting to log in to Docker Hub..."
-                                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                                echo "$DOCKER_PASSWORD" | sudo docker login -u "$DOCKER_USERNAME" --password-stdin
                                 echo "Docker login successful"
                             '''
                             
-                            sh "docker push ${BACKEND_IMAGE}"
+                            sh "sudo docker push ${BACKEND_IMAGE}"
                             echo "Backend image pushed successfully"
                             
-                            sh "docker push ${FRONTEND_IMAGE}"
+                            sh "sudo docker push ${FRONTEND_IMAGE}"
                             echo "Frontend image pushed successfully"
                             
                         } catch (Exception e) {
