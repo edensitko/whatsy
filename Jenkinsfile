@@ -22,43 +22,22 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
-                    # Install Docker if not present
+                    # Check for Docker CLI
                     if ! command -v docker &> /dev/null; then
-                        echo "Installing Docker..."
-                        sudo apt-get update
-                        sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-                        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-                        sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-                        sudo apt-get update
-                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-                        sudo systemctl start docker
-                        sudo systemctl enable docker
-                        sudo usermod -aG docker jenkins
-                        sudo systemctl restart jenkins
-                        # Since we just added the jenkins user to the docker group,
-                        # we need to run Docker commands with sudo until the next login
-                        echo "Docker installed. You may need to run this pipeline again after Jenkins restarts."
+                        echo "Docker is not installed. Please install Docker on the Jenkins server."
+                        exit 1
                     fi
                     
-                    # Install Node.js using NVM
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
-                    
-                    # Install NVM if not present
-                    if ! command -v nvm &> /dev/null; then
-                        echo "Installing NVM..."
-                        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-                        export NVM_DIR="$HOME/.nvm"
-                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+                    # Check for Node.js and install if needed
+                    if ! command -v node &> /dev/null; then
+                        echo "Installing Node.js ${NODE_VERSION}..."
+                        curl -sL https://deb.nodesource.com/setup_18.x | bash -
+                        apt-get install -y nodejs
                     fi
-                    
-                    # Install specific Node.js version
-                    nvm install ${NODE_VERSION}
-                    nvm use ${NODE_VERSION}
                     
                     # Verify installations
                     echo "Docker version:"
-                    sudo docker --version || true
+                    docker --version || true
                     echo "Node version:"
                     node --version || true
                     echo "NPM version:"
@@ -78,7 +57,7 @@ pipeline {
                     
                     script {
                         try {
-                            sh "sudo docker build -t ${BACKEND_IMAGE} ."
+                            sh "docker build -t ${BACKEND_IMAGE} ."
                             echo "Backend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build backend Docker image: ${e.message}"
@@ -127,7 +106,7 @@ EOL
                     
                     script {
                         try {
-                            sh "sudo docker build -t ${FRONTEND_IMAGE} ."
+                            sh "docker build -t ${FRONTEND_IMAGE} ."
                             echo "Frontend Docker image built successfully"
                         } catch (Exception e) {
                             error "Failed to build frontend Docker image: ${e.message}"
@@ -147,14 +126,14 @@ EOL
                         try {
                             sh '''
                                 echo "Attempting to log in to Docker Hub..."
-                                echo "$DOCKER_PASSWORD" | sudo docker login -u "$DOCKER_USERNAME" --password-stdin
+                                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                                 echo "Docker login successful"
                             '''
                             
-                            sh "sudo docker push ${BACKEND_IMAGE}"
+                            sh "docker push ${BACKEND_IMAGE}"
                             echo "Backend image pushed successfully"
                             
-                            sh "sudo docker push ${FRONTEND_IMAGE}"
+                            sh "docker push ${FRONTEND_IMAGE}"
                             echo "Frontend image pushed successfully"
                             
                         } catch (Exception e) {
