@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bot Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chat-container {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background-color: #e5ddd5;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #dcf8c6;
+            margin-left: auto;
+            margin-right: 10px;
+        }
+        .bot-message {
+            background-color: white;
+            margin-right: auto;
+            margin-left: 10px;
+        }
+        .input-container {
+            display: flex;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #25d366;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .business-selector {
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .phone-input {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WhatsApp Bot Tester</h1>
+    
+    <div class="phone-input">
+        <label for="phone-number">Your Phone Number:</label>
+        <input type="text" id="phone-number" value="+12345678910" placeholder="e.g., +12345678910">
+    </div>
+    
+    <div class="business-selector">
+        <label for="business-select">Select Business:</label>
+        <select id="business-select">
+            <option value="">No business selected</option>
+            <option value="e1b2c3">Smart Business Assistant (e1b2c3)</option>
+            <option value="f4g5h6">Tech Support Bot (f4g5h6)</option>
+            <option value="i7j8k9">Restaurant Helper (i7j8k9)</option>
+        </select>
+        <button id="select-business">Select</button>
+    </div>
+    
+    <div class="chat-container" id="chat-container"></div>
+    
+    <div class="input-container">
+        <input type="text" id="message-input" placeholder="Type a message...">
+        <button id="send-button">Send</button>
+    </div>
+    
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const businessSelect = document.getElementById('business-select');
+        const selectBusinessButton = document.getElementById('select-business');
+        const phoneNumberInput = document.getElementById('phone-number');
+        
+        let selectedBusiness = '';
+        
+        // Add a user message to the chat
+        function addUserMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'user-message');
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Add a bot message to the chat
+        function addBotMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'bot-message');
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Send a message to the bot
+        async function sendMessage(message) {
+            addUserMessage(message);
+            
+            try {
+                const phoneNumber = phoneNumberInput.value.trim();
+                if (!phoneNumber) {
+                    addBotMessage('Error: Please enter a phone number');
+                    return;
+                }
+                
+                // Prepare the message with bot ID if needed
+                let fullMessage = message;
+                if (selectedBusiness && !message.startsWith('#bot:')) {
+                    fullMessage = `#bot:${selectedBusiness} ${message}`;
+                }
+                
+                const response = await fetch('http://localhost:3000/api/whatsapp/webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'Body': fullMessage,
+                        'From': `whatsapp:${phoneNumber}`,
+                        'To': 'whatsapp:+14155238886'
+                    })
+                });
+                
+                if (response.ok) {
+                    // Since we're in mock mode, we need to fetch the response from the server logs
+                    // We'll add a small delay to allow the server to process the message
+                    setTimeout(async () => {
+                        try {
+                            const logsResponse = await fetch('http://localhost:3000/api/logs/latest');
+                            if (logsResponse.ok) {
+                                const logsData = await logsResponse.json();
+                                if (logsData && logsData.mockMessage) {
+                                    addBotMessage(logsData.mockMessage);
+                                } else {
+                                    addBotMessage('Message sent to server. Check server logs for the response.');
+                                }
+                            } else {
+                                addBotMessage('Message sent to server. Check server logs for the response.');
+                            }
+                        } catch (error) {
+                            addBotMessage('Message sent to server. Check server logs for the response.');
+                        }
+                    }, 2000);
+                } else {
+                    addBotMessage(`Error: ${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                addBotMessage(`Error: ${error.message}`);
+            }
+        }
+        
+        // Select a business
+        selectBusinessButton.addEventListener('click', () => {
+            selectedBusiness = businessSelect.value;
+            if (selectedBusiness) {
+                addBotMessage(`Selected business with ID: ${selectedBusiness}`);
+            } else {
+                addBotMessage('No business selected. You will need to specify a bot ID in each message.');
+            }
+        });
+        
+        // Send button click event
+        sendButton.addEventListener('click', () => {
+            const message = messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+                messageInput.value = '';
+            }
+        });
+        
+        // Enter key press event
+        messageInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                const message = messageInput.value.trim();
+                if (message) {
+                    sendMessage(message);
+                    messageInput.value = '';
+                }
+            }
+        });
+        
+        // Initial message
+        addBotMessage('Welcome to the WhatsApp Bot Tester! Select a business and start chatting.');
+    </script>
+</body>
+</html>

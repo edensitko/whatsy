@@ -1,0 +1,11 @@
+backend:
+  image: edensit139/whatsy:backend-prod
+  containerPort: 5000
+  servicePort: 5000
+
+dnsName: whatsy
+
+frontend:
+  image: edensit139/whatsy:frontend-prod
+  containerPort: 80
+  servicePort: 80

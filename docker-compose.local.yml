@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    image: edensit139/whatsy:backend-prod
+    container_name: whatsy-backend
+    environment:
+      - PORT=5001
+      - NODE_ENV=development
+      - SKIP_TWILIO_VALIDATION=true
+      - ENABLE_HTTPS=true
+      - SSL_CERT_PATH=./certs/cert.pem
+      - SSL_KEY_PATH=./certs/key.pem
+      - HTTPS_PORT=444
+    ports:
+      - "5001:5001"
+      - "444:444"
+    volumes:
+      - ./backend/certs:/app/certs
+      - ./backend/.env:/app/.env
+    networks:
+      - whatsy-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    restart: unless-stopped
+
+  frontend:
+    image: edensit139/whatsy:frontend-prod
+    container_name: whatsy-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - whatsy-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    restart: unless-stopped
+
+networks:
+  whatsy-network:
+    name: whatsy-network
+    external: true
