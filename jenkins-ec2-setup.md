@@ -151,20 +151,20 @@ chmod 644 ~/certs/cert.pem
 ```bash
 cat > ~/.env << 'EOL'
 # OpenAI Configuration
-OPENAI_API_KEY=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
+OPENAI_API_KEY=your_openai_api_key_here
 
 # Firebase Configuration
-FIREBASE_API_KEY=AIzaSyDsftA3WWt0RFn0MDB6g6FYrvTt3ZAAS-Y
-FIREBASE_AUTH_DOMAIN=botapp-898bd.firebaseapp.com
-FIREBASE_PROJECT_ID=botapp-898bd
-FIREBASE_STORAGE_BUCKET=botapp-898bd.firebasestorage.app
-FIREBASE_MESSAGING_SENDER_ID=923990411283
-FIREBASE_APP_ID=1:923990411283:web:9fcfba22775ef20d3ad7e6
+FIREBASE_API_KEY=your_firebase_api_key_here
+FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain_here
+FIREBASE_PROJECT_ID=your_firebase_project_id_here
+FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket_here
+FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id_here
+FIREBASE_APP_ID=your_firebase_app_id_here
 
 # Twilio Configuration
-TWILIO_ACCOUNT_SID=ACc51b1aea3e74f0c2cb89fcb4de030416
-TWILIO_AUTH_TOKEN=3d3f301094a44e2fc5a014ba709e2386
-WHATSAPP_PHONE_NUMBER=14155238886
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+WHATSAPP_PHONE_NUMBER=your_whatsapp_phone_number_here
 
 # Server Configuration
 PORT=5000

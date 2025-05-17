@@ -13,9 +13,9 @@ This guide will walk you through the process of configuring your backend to rece
 Ensure your backend has the necessary Twilio credentials in the `.env` file:
 
 ```
-TWILIO_ACCOUNT_SID=ACc51b1aea3e74f0c2cb89fcb4de030416
-TWILIO_AUTH_TOKEN=3d3f301094a44e2fc5a014ba709e2386
-WHATSAPP_PHONE_NUMBER=14155238886
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+WHATSAPP_PHONE_NUMBER=your_whatsapp_phone_number_here
 ```
 
 ## Step 2: Make Your Backend Accessible from the Internet
